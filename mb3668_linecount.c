@@ -15,6 +15,7 @@ int count = 0; // Global line count variable
 
 void errorCheck(int val, const char *str)
 {
+	// Create error checking functionality
 	if (val == -1)
 	{
 		perror(str);
@@ -22,55 +23,71 @@ void errorCheck(int val, const char *str)
 	}
 }
 
-void countFileLines(const char *fileName)
+void *countFileLines(void *fileName)
 {
 	// www.geeksforgeeks.org/c-program-count-number-lines-file/
 	// Read file and return number of lines
 
 	// File pointer and char to check for newline
 	FILE *fp;
-	//char *fileName = (char*)fileName;
-	char c;
 
-	fp = fopen(fileName, "r");
+	char c;
+	const char* file = (char*)fileName;
+	int localLineCount = 0;
+
+	fp = fopen(file, "r");
 
 	if (fp == NULL)
 	{
-		printf("Could not open file %s", fileName);
+		printf("Could not open file %s", file);
 		exit(EXIT_SUCCESS);
 	}
 
+	// Loop through file
 	for (c = getc(fp); c != EOF; c = getc(fp))
 	{
-		// Probably needs to be locked with a mutex. Called in each thread
-		if (c == '\n') count = count + 1; // ASK ABOUT THIS
+		// Count newlines
+		if (c == '\n')
+		{
+			localLineCount++; // Find exact file lines
+		}
 	}
 
+	// Set global count variable. Probably needs to be in a mutex
+	count = localLineCount + count;
+
 	fclose(fp);
-	printf("File %s has %d lines\n", fileName, count);
+	printf("File %s has %d lines\n", file, localLineCount);
+
+	return NULL;
 }
 
 
 int main(int argc, char* argv[])
 {
-	// Initialize file pointer
-	FILE *fp;
 	// excecvp commands with wc and return line count number
 	char filename[FILE_NAME];
 	char c; // Stores char from file to check for newline
+	int requiredThreads = argc-1; // Finds out how many threads are required
 
-	// Create pthread for testing
-	pthread_t id[2]; // Probably replace 2 with argc
+	// Create as many pthreads as required
+	pthread_t id[requiredThreads];
 
-	//pthread_create(&id[0], NULL, countFileLines, &argv[1]);
-	//pthread_create(&id[1], NULL, countFileLines, &argv[2]);
-
-	// Test passing multiple files
-	for (int i = 0; i < argc-1; i++)
+	// Produce threads
+	for (int i = 0; i < requiredThreads; i++)
 	{
-		//scanf("%s", filename);
-		countFileLines(argv[i+1]);
+		pthread_create(&id[i], NULL, countFileLines, argv[i+1]);
 	}
+
+	// Wait for threads to finish
+	for (int i = 0; i < requiredThreads; i++)
+	{
+		pthread_join(id[i], NULL);
+	}
+
+	printf("%d total\n", count);
+	// Exit main
+	printf("Exiting main program\n");
 
 	exit(EXIT_SUCCESS);
 }
